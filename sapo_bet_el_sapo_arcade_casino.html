@@ -1,0 +1,1365 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>SAPO.BET — El Sapo Arcade Casino</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <!-- Google Fonts: Outfit & JetBrains Mono -->
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700;800&family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            obsidian: '#0d0f14',
+            card: '#161922',
+            cardLight: '#1e222f',
+            amberGold: '#FFB642',
+            amberDark: '#c98414',
+            neonEmerald: '#00E701',
+            emeraldDark: '#00a801',
+            crimson: '#ff3b5c'
+          },
+          fontFamily: {
+            sans: ['Outfit', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    * {
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    body {
+      background-color: #0d0f14;
+      color: #f1f5f9;
+      font-family: 'Outfit', sans-serif;
+      overflow-x: hidden;
+    }
+    /* Custom scrollbars */
+    ::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0d0f14;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #262b3d;
+      border-radius: 9999px;
+    }
+    
+    /* Screen shake on near-miss or jackpot */
+    @keyframes shakeHard {
+      0%, 100% { transform: translate(0, 0) rotate(0deg); }
+      15% { transform: translate(-6px, -4px) rotate(-1.5deg); }
+      30% { transform: translate(6px, 3px) rotate(1.5deg); }
+      45% { transform: translate(-5px, 4px) rotate(-1deg); }
+      60% { transform: translate(5px, -3px) rotate(1deg); }
+      75% { transform: translate(-3px, 2px) rotate(-0.5deg); }
+    }
+    .shake-screen {
+      animation: shakeHard 0.42s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+    }
+
+    /* Neon glows */
+    .glow-amber {
+      box-shadow: 0 0 18px rgba(255, 182, 66, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.25);
+    }
+    .glow-emerald {
+      box-shadow: 0 0 22px rgba(0, 231, 1, 0.4), inset 0 1px 2px rgba(255, 255, 255, 0.35);
+    }
+    .wood-board {
+      background: radial-gradient(circle at 50% 25%, #2a1d15 0%, #1a110b 70%, #110b07 100%);
+      border: 3px solid #473221;
+      box-shadow: inset 0 0 35px rgba(0, 0, 0, 0.85), 0 10px 25px rgba(0, 0, 0, 0.7);
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between max-w-md mx-auto bg-obsidian border-x border-slate-800/60 relative shadow-2xl">
+
+  <!-- TOP PERSISTENT HUD -->
+  <header class="sticky top-0 z-30 bg-obsidian/95 backdrop-blur-md border-b border-slate-800/80 px-3.5 py-2.5 flex items-center justify-between">
+    <!-- App Brand -->
+    <div class="flex items-center gap-2">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-amberGold to-amberDark flex items-center justify-center shadow-lg glow-amber">
+        <i class="fa-solid fa-frog text-obsidian text-lg"></i>
+      </div>
+      <div>
+        <div class="flex items-center gap-1.5">
+          <span class="font-black tracking-tight text-lg text-white">SAPO<span class="text-amberGold">.BET</span></span>
+          <span class="text-[10px] font-mono uppercase bg-amberGold/15 text-amberGold border border-amberGold/30 px-1.5 py-0.5 rounded font-bold">BO</span>
+        </div>
+        <p class="text-[10px] text-slate-400 -mt-1 font-medium">Arcade &bull; Provably Scripted</p>
+      </div>
+    </div>
+
+    <!-- Balance & Deposit HUD -->
+    <div class="flex items-center gap-2">
+      <div class="bg-card border border-slate-700/80 rounded-xl px-2.5 py-1 flex items-center gap-2">
+        <div class="w-5 h-5 rounded-full bg-amberGold/20 border border-amberGold flex items-center justify-center text-amberGold text-xs font-black font-mono">
+          L
+        </div>
+        <div class="text-right">
+          <div class="text-[9px] uppercase tracking-wider text-slate-400 font-semibold leading-none">Saldo Lucas</div>
+          <div id="hudBalance" class="font-mono font-extrabold text-sm text-white leading-tight">100.00</div>
+        </div>
+        <button id="btnOpenWallet" class="ml-1 bg-neonEmerald hover:bg-emeraldDark active:scale-95 transition text-obsidian font-extrabold text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1 shadow-md">
+          <i class="fa-solid fa-qrcode text-[11px]"></i>
+          <span>+ QR</span>
+        </button>
+      </div>
+
+      <!-- Sound Toggle -->
+      <button id="btnSoundToggle" class="w-9 h-9 rounded-xl bg-card border border-slate-700/80 flex items-center justify-center text-amberGold hover:bg-cardLight active:scale-95 transition" title="Sonido Sintetizado">
+        <i id="soundIcon" class="fa-solid fa-volume-high text-sm"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- RECENT MULTIPLIER PILLS TICKER (Rainbet Style) -->
+  <div class="bg-card/70 border-b border-slate-800/70 px-3 py-1.5 flex items-center gap-2 overflow-hidden">
+    <span class="text-[10px] font-mono uppercase tracking-wider text-slate-400 shrink-0 flex items-center gap-1">
+      <span class="w-1.5 h-1.5 rounded-full bg-neonEmerald animate-pulse"></span>Historial:
+    </span>
+    <div id="recentTicker" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+      <!-- Populated dynamically -->
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT VIEWS -->
+  <main class="flex-1 flex flex-col justify-between p-3 gap-2.5 overflow-y-auto pb-20">
+
+    <!-- VIEW 1: EL SAPO GAME BOARD -->
+    <section id="viewGame" class="flex flex-col gap-2.5">
+      
+      <!-- Creator / House Inspector Banner Toggle -->
+      <div class="bg-card border border-amberGold/30 rounded-xl p-2.5 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-sliders text-amberGold text-xs"></i>
+          <span class="text-xs font-bold text-slate-200">Modo Creador / Motor de Casa</span>
+          <span id="rtpBadge" class="text-[10px] font-mono bg-amberGold/20 text-amberGold px-1.5 py-0.5 rounded">92.5% RTP</span>
+        </div>
+        <button id="btnToggleInspector" class="text-xs font-mono text-amberGold underline font-semibold">
+          Abrir Panel
+        </button>
+      </div>
+
+      <!-- Collapsible Creator / House Inspector Drawer -->
+      <div id="inspectorDrawer" class="hidden bg-cardLight/95 border border-amberGold/40 rounded-xl p-3 space-y-2.5 text-xs shadow-xl">
+        <div class="flex items-center justify-between border-b border-slate-700/70 pb-1.5">
+          <span class="font-bold text-amberGold uppercase tracking-wider text-[11px]">
+            <i class="fa-solid fa-eye mr-1"></i> Telemetría de la Casa & Script
+          </span>
+          <button id="btnResetStats" class="text-[10px] text-slate-400 hover:text-white font-mono">
+            Reiniciar Métricas
+          </button>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2 text-center">
+          <div class="bg-obsidian/80 p-2 rounded-lg border border-slate-800">
+            <div class="text-[10px] text-slate-400">Ganancia Casa</div>
+            <div id="statHouseProfit" class="font-mono font-bold text-neonEmerald text-sm">+0.00 L</div>
+          </div>
+          <div class="bg-obsidian/80 p-2 rounded-lg border border-slate-800">
+            <div class="text-[10px] text-slate-400">RTP Real</div>
+            <div id="statActualRTP" class="font-mono font-bold text-amberGold text-sm">0.0%</div>
+          </div>
+          <div class="bg-obsidian/80 p-2 rounded-lg border border-slate-800">
+            <div class="text-[10px] text-slate-400">Casi-Aciertos</div>
+            <div id="statNearMisses" class="font-mono font-bold text-white text-sm">0</div>
+          </div>
+        </div>
+
+        <!-- Force Next Outcome Script Controls -->
+        <div class="pt-1">
+          <div class="text-[10px] text-slate-300 font-semibold mb-1.5">Forzar Próximo Tiro (Prueba de Retención):</div>
+          <div class="grid grid-cols-3 gap-1.5">
+            <button data-force="normal" class="force-btn bg-amberGold text-obsidian font-bold py-1.5 rounded-lg text-[11px] transition">
+              RNG Normal
+            </button>
+            <button data-force="nearmiss" class="force-btn bg-obsidian border border-slate-700 text-slate-200 font-semibold py-1.5 rounded-lg text-[11px] transition">
+              Casi-Sapo (Clink!)
+            </button>
+            <button data-force="jackpot" class="force-btn bg-obsidian border border-slate-700 text-amberGold font-semibold py-1.5 rounded-lg text-[11px] transition">
+              Boca Sapo (Jackpot)
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- THE INTERACTIVE EL SAPO TABLE (CANVAS + HUD OVERLAY) -->
+      <div id="boardContainer" class="relative w-full aspect-[4/4.3] wood-board rounded-2xl overflow-hidden">
+        <!-- Top Brass Plaque -->
+        <div class="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-gradient-to-r from-amberDark via-amberGold to-amberDark text-obsidian font-black text-[10px] tracking-widest uppercase px-3 py-0.5 rounded-full shadow-md border border-yellow-200/60 pointer-events-none">
+          JUEGO TRADICIONAL EL SAPO
+        </div>
+
+        <!-- Floating Win/Near-Miss Banner Overlay -->
+        <div id="outcomeOverlay" class="pointer-events-none absolute inset-x-0 top-10 z-20 flex justify-center opacity-0 transition-all duration-300 transform scale-90">
+          <div id="outcomeBox" class="px-4 py-1.5 rounded-xl font-black text-sm tracking-wide shadow-2xl border backdrop-blur-md">
+            ¡LA BOCA DEL SAPO! 25x
+          </div>
+        </div>
+
+        <!-- Main Game Canvas -->
+        <canvas id="sapoCanvas"></canvas>
+      </div>
+
+      <!-- BETTING & ENGAGEMENT CONTROLS (Rainbet / Stake Dark Console) -->
+      <div class="bg-card border border-slate-800/90 rounded-2xl p-3 space-y-3 shadow-lg">
+        
+        <!-- Primary Action Button: LANZAR MONEDA + Auto Mode -->
+        <div class="flex gap-2">
+          <button id="btnToss" class="flex-1 bg-gradient-to-b from-neonEmerald to-emeraldDark hover:brightness-110 active:scale-[0.98] transition text-obsidian font-black text-base py-3.5 rounded-xl glow-emerald flex items-center justify-center gap-2 tracking-wide uppercase">
+            <i class="fa-solid fa-coins text-lg"></i>
+            <span id="btnTossText">LANZAR MONEDA</span>
+          </button>
+
+          <button id="btnAutoToss" class="px-3.5 bg-cardLight border border-slate-700 hover:border-amberGold/60 active:scale-95 transition rounded-xl flex flex-col items-center justify-center text-slate-300">
+            <i class="fa-solid fa-rotate text-xs mb-0.5"></i>
+            <span class="text-[10px] font-bold uppercase">Auto</span>
+          </button>
+        </div>
+
+        <!-- Bet Size Row -->
+        <div>
+          <div class="flex justify-between text-[11px] font-semibold text-slate-400 mb-1">
+            <span>Monto de Apuesta (LUCAS)</span>
+            <span id="potentialWinText" class="text-amberGold font-mono">Premio Máx: 125.00 L</span>
+          </div>
+          <div class="flex items-center bg-obsidian border border-slate-700/80 rounded-xl p-1 gap-1">
+            <div class="flex items-center pl-2.5 pr-1 text-amberGold font-mono font-bold text-sm">L</div>
+            <input id="betInput" type="number" min="1" max="1000" step="1" value="5" class="w-full bg-transparent font-mono font-bold text-white text-sm focus:outline-none" />
+            <button data-betmod="half" class="bet-mod-btn bg-cardLight hover:bg-slate-700 text-xs font-mono font-bold px-2.5 py-1.5 rounded-lg text-slate-300">½</button>
+            <button data-betmod="double" class="bet-mod-btn bg-cardLight hover:bg-slate-700 text-xs font-mono font-bold px-2.5 py-1.5 rounded-lg text-slate-300">2x</button>
+            <button data-betmod="max" class="bet-mod-btn bg-amberGold/20 hover:bg-amberGold/30 text-xs font-mono font-bold px-2.5 py-1.5 rounded-lg text-amberGold">MAX</button>
+          </div>
+
+          <!-- Quick Chip Pills -->
+          <div class="grid grid-cols-4 gap-1.5 mt-2">
+            <button data-chip="1" class="chip-btn bg-obsidian hover:bg-cardLight border border-slate-800 rounded-lg py-1 font-mono text-xs font-bold text-slate-300">1 L</button>
+            <button data-chip="5" class="chip-btn bg-obsidian hover:bg-cardLight border border-amberGold/50 rounded-lg py-1 font-mono text-xs font-bold text-amberGold">5 L</button>
+            <button data-chip="10" class="chip-btn bg-obsidian hover:bg-cardLight border border-slate-800 rounded-lg py-1 font-mono text-xs font-bold text-slate-300">10 L</button>
+            <button data-chip="25" class="chip-btn bg-obsidian hover:bg-cardLight border border-slate-800 rounded-lg py-1 font-mono text-xs font-bold text-slate-300">25 L</button>
+          </div>
+        </div>
+
+        <!-- Risk Mode Selector -->
+        <div class="flex items-center justify-between pt-1 border-t border-slate-800/80">
+          <span class="text-xs text-slate-400 font-semibold">Modo de Riesgo:</span>
+          <div class="flex bg-obsidian p-1 rounded-xl border border-slate-800 gap-1">
+            <button data-risk="classic" class="risk-btn bg-cardLight text-amberGold font-bold text-xs px-3 py-1 rounded-lg transition">
+              Clásico (25x)
+            </button>
+            <button data-risk="high" class="risk-btn text-slate-400 font-semibold text-xs px-3 py-1 rounded-lg transition">
+              Alto Riesgo (50x)
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- VIEW 2: BET HISTORY & AUDIT LOG -->
+    <section id="viewHistory" class="hidden flex-col gap-3">
+      <div class="bg-card border border-slate-800 rounded-2xl p-3.5">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <h2 class="font-bold text-base text-white">Historial de Lanzamientos</h2>
+            <p class="text-xs text-slate-400">Registro local de apuestas y multiplicadores</p>
+          </div>
+          <button id="btnClearHistory" class="text-xs text-slate-400 hover:text-crimson font-mono">
+            <i class="fa-solid fa-trash-can mr-1"></i>Limpiar
+          </button>
+        </div>
+
+        <div id="historyList" class="space-y-2 max-h-[62vh] overflow-y-auto pr-1">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 3: PROVABLY FAIR / HOUSE RULES -->
+    <section id="viewRules" class="hidden flex-col gap-3">
+      <div class="bg-card border border-slate-800 rounded-2xl p-4 space-y-3 text-xs leading-relaxed text-slate-300">
+        <div class="flex items-center gap-2 text-amberGold font-bold text-sm">
+          <i class="fa-solid fa-crown"></i>
+          <span>Tabla de Pagos — El Sapo</span>
+        </div>
+        <p>En <strong>SAPO.BET</strong> lanzas una moneda de bronce hacia el tablero tradicional boliviano. Cada orificio tiene un multiplicador asignado:</p>
+        <div class="space-y-1.5 font-mono">
+          <div class="flex justify-between bg-obsidian p-2 rounded-lg border border-amberGold/40 text-amberGold">
+            <span>🐸 La Boca del Sapo (Centro)</span>
+            <span class="font-bold">25.0x / 50.0x</span>
+          </div>
+          <div class="flex justify-between bg-obsidian p-2 rounded-lg border border-slate-800 text-emerald-400">
+            <span>🐸 Rana Dorada (Laterales)</span>
+            <span class="font-bold">5.0x</span>
+          </div>
+          <div class="flex justify-between bg-obsidian p-2 rounded-lg border border-slate-800 text-sky-400">
+            <span>🎯 Blanco Mayor (Fila Media)</span>
+            <span class="font-bold">2.0x</span>
+          </div>
+          <div class="flex justify-between bg-obsidian p-2 rounded-lg border border-slate-800 text-slate-200">
+            <span>⭕ Blanco Menor (Fila Baja)</span>
+            <span class="font-bold">1.2x</span>
+          </div>
+          <div class="flex justify-between bg-obsidian p-2 rounded-lg border border-slate-800 text-slate-400">
+            <span>⚙️ Borde de Cobre / Vacío</span>
+            <span class="font-bold">0.5x / 0.0x</span>
+          </div>
+        </div>
+        <div class="p-3 bg-amberGold/10 border border-amberGold/30 rounded-xl text-amberGold">
+          <strong>Nota de Arquitectura:</strong> Esta versión corre 100% en tu dispositivo usando almacenamiento persistente. Cuando conectes Supabase, la función <code>play_el_sapo(bet)</code> reemplazará el generador local sin cambiar nada de la interfaz.
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MODAL: BOLIVIAN QR SIMPLE CASH-IN / CASH-OUT WALLET -->
+  <div id="walletModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-card border-t sm:border border-slate-700 w-full max-w-md rounded-t-3xl sm:rounded-2xl p-4 space-y-4 animate-fade-in shadow-2xl">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg bg-neonEmerald/20 text-neonEmerald flex items-center justify-center">
+            <i class="fa-solid fa-qrcode"></i>
+          </div>
+          <div>
+            <h3 class="font-extrabold text-white text-base">Billetera Lucas (QR Simple)</h3>
+            <p class="text-[11px] text-slate-400">1 LUCAS = 1 BOB &bull; Acreditación Inmediata</p>
+          </div>
+        </div>
+        <button id="btnCloseWallet" class="w-8 h-8 rounded-lg bg-obsidian text-slate-400 hover:text-white flex items-center justify-center">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Deposit / Withdraw Tabs -->
+      <div class="grid grid-cols-2 bg-obsidian p-1 rounded-xl border border-slate-800">
+        <button id="tabDeposit" class="py-2 rounded-lg font-bold text-xs bg-cardLight text-neonEmerald">
+          Comprar Lucas (QR)
+        </button>
+        <button id="tabWithdraw" class="py-2 rounded-lg font-bold text-xs text-slate-400">
+          Retirar a Banco / QR
+        </button>
+      </div>
+
+      <!-- DEPOSIT CONTENT -->
+      <div id="depositSection" class="space-y-3">
+        <div class="text-xs text-slate-300 font-semibold">1. Selecciona el paquete de Lucas:</div>
+        <div class="grid grid-cols-4 gap-2">
+          <button data-pkg="20" class="pkg-btn bg-obsidian border border-slate-700 rounded-xl py-2 font-mono font-bold text-xs text-white">20 L</button>
+          <button data-pkg="50" class="pkg-btn bg-obsidian border border-neonEmerald rounded-xl py-2 font-mono font-bold text-xs text-neonEmerald">50 L</button>
+          <button data-pkg="100" class="pkg-btn bg-obsidian border border-slate-700 rounded-xl py-2 font-mono font-bold text-xs text-white">100 L</button>
+          <button data-pkg="500" class="pkg-btn bg-obsidian border border-slate-700 rounded-xl py-2 font-mono font-bold text-xs text-white">500 L</button>
+        </div>
+
+        <!-- Simulated Bolivian QR Simple Card -->
+        <div class="bg-white text-slate-900 rounded-2xl p-3.5 flex items-center gap-3.5 shadow-inner">
+          <!-- Crisp SVG QR Code -->
+          <div class="w-24 h-24 bg-slate-100 p-1.5 rounded-xl border border-slate-300 shrink-0 flex items-center justify-center">
+            <svg viewBox="0 0 100 100" class="w-full h-full fill-slate-900">
+              <rect x="5" y="5" width="28" height="28" rx="4" fill="none" stroke="#0f172a" stroke-width="6"/>
+              <rect x="13" y="13" width="12" height="12" rx="2"/>
+              <rect x="67" y="5" width="28" height="28" rx="4" fill="none" stroke="#0f172a" stroke-width="6"/>
+              <rect x="75" y="13" width="12" height="12" rx="2"/>
+              <rect x="5" y="67" width="28" height="28" rx="4" fill="none" stroke="#0f172a" stroke-width="6"/>
+              <rect x="13" y="75" width="12" height="12" rx="2"/>
+              <rect x="42" y="10" width="8" height="8"/>
+              <rect x="52" y="18" width="8" height="16"/>
+              <rect x="40" y="40" width="20" height="20" rx="3" fill="#00a801"/>
+              <rect x="10" y="42" width="18" height="8"/>
+              <rect x="68" y="44" width="22" height="8"/>
+              <rect x="42" y="68" width="10" height="24"/>
+              <rect x="60" y="66" width="14" height="12"/>
+              <rect x="78" y="76" width="16" height="16"/>
+            </svg>
+          </div>
+          <div class="space-y-1 text-xs">
+            <div class="font-black text-slate-900 uppercase tracking-tight flex items-center gap-1">
+              <span>QR SIMPLE BOLIVIA</span>
+              <i class="fa-solid fa-circle-check text-emerald-600"></i>
+            </div>
+            <p class="text-[11px] text-slate-600 leading-snug">Escanea desde tu app bancaria (Bisa, BNB, BCP, Mercantil, Tigo Money).</p>
+            <div class="font-mono font-extrabold text-sm text-slate-900 pt-0.5">
+              Monto: <span id="qrAmountLabel">50.00 BOB</span>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label class="text-[11px] text-slate-400 font-semibold block mb-1">Nro. de Comprobante / Referencia Bancaria:</label>
+          <input id="qrRefInput" type="text" placeholder="Ej: 84920194" class="w-full bg-obsidian border border-slate-700 rounded-xl px-3 py-2 text-xs font-mono text-white focus:outline-none focus:border-neonEmerald" />
+        </div>
+
+        <button id="btnInstantApproveDeposit" class="w-full bg-neonEmerald hover:bg-emeraldDark active:scale-98 transition text-obsidian font-black text-xs uppercase py-3 rounded-xl shadow-lg">
+          <i class="fa-solid fa-bolt mr-1"></i> Simular Aprobación Admin (+<span id="btnApproveAmt">50</span> LUCAS)
+        </button>
+      </div>
+
+      <!-- WITHDRAW CONTENT -->
+      <div id="withdrawSection" class="hidden space-y-3">
+        <div class="bg-obsidian border border-slate-800 rounded-xl p-3 flex justify-between items-center">
+          <span class="text-xs text-slate-400">Saldo Disponible para Retiro:</span>
+          <span id="withdrawAvailBalance" class="font-mono font-bold text-amberGold text-sm">100.00 LUCAS</span>
+        </div>
+
+        <div>
+          <label class="text-[11px] text-slate-400 font-semibold block mb-1">Monto a Retirar (LUCAS = BOB):</label>
+          <input id="withdrawAmountInput" type="number" min="10" value="50" class="w-full bg-obsidian border border-slate-700 rounded-xl px-3 py-2 text-xs font-mono text-white focus:outline-none focus:border-amberGold" />
+        </div>
+
+        <div>
+          <label class="text-[11px] text-slate-400 font-semibold block mb-1">Banco Destino / Celular Tigo Money:</label>
+          <input id="withdrawBankInput" type="text" placeholder="Ej: BNB Cuenta 1049281920 - Carlos" class="w-full bg-obsidian border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amberGold" />
+        </div>
+
+        <button id="btnProcessWithdraw" class="w-full bg-amberGold hover:bg-amberDark text-obsidian font-black text-xs uppercase py-3 rounded-xl shadow-lg">
+          Solicitar Retiro Inmediato
+        </button>
+      </div>
+
+      <!-- Toast inside modal -->
+      <div id="walletToast" class="hidden text-center text-xs font-bold py-2 rounded-lg bg-neonEmerald/20 text-neonEmerald border border-neonEmerald/40"></div>
+    </div>
+  </div>
+
+  <!-- BOTTOM NAVIGATION BAR -->
+  <nav class="fixed bottom-0 inset-x-0 max-w-md mx-auto z-30 bg-obsidian/95 backdrop-blur-md border-t border-slate-800/90 px-6 py-2 flex justify-around items-center">
+    <button data-nav="game" class="nav-btn flex flex-col items-center gap-0.5 text-amberGold">
+      <i class="fa-solid fa-frog text-base"></i>
+      <span class="text-[10px] font-bold">El Sapo</span>
+    </button>
+    <button data-nav="history" class="nav-btn flex flex-col items-center gap-0.5 text-slate-400 hover:text-white">
+      <i class="fa-solid fa-clock-rotate-left text-base"></i>
+      <span class="text-[10px] font-semibold">Historial</span>
+    </button>
+    <button id="btnNavWallet" class="flex flex-col items-center gap-0.5 text-slate-400 hover:text-neonEmerald">
+      <i class="fa-solid fa-wallet text-base"></i>
+      <span class="text-[10px] font-semibold">Cajero QR</span>
+    </button>
+    <button data-nav="rules" class="nav-btn flex flex-col items-center gap-0.5 text-slate-400 hover:text-white">
+      <i class="fa-solid fa-shield-halved text-base"></i>
+      <span class="text-[10px] font-semibold">Reglas & RTP</span>
+    </button>
+  </nav>
+
+  <script>
+    /********************************************************************
+     * 1. SYNTHESIZED WEB AUDIO SOUND ENGINE (Zero external MP3s needed)
+     ********************************************************************/
+    class SoundEngine {
+      constructor() {
+        this.enabled = true;
+        this.ctx = null;
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioCtx();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+
+      playCoinLaunch() {
+        if (!this.enabled) return;
+        this.init();
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(320, now);
+        osc.frequency.exponentialRampToValueAtTime(880, now + 0.14);
+        gain.gain.setValueAtTime(0.18, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.16);
+      }
+
+      playBrassClink() {
+        if (!this.enabled) return;
+        this.init();
+        const now = this.ctx.currentTime;
+        // High metallic ring for striking the brass Sapo jaw
+        [1850, 2420, 3100].forEach((freq, idx) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, now);
+          gain.gain.setValueAtTime(0.15 / (idx + 1), now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.29);
+        });
+      }
+
+      playWin(multiplier) {
+        if (!this.enabled) return;
+        this.init();
+        const now = this.ctx.currentTime;
+        const notes = multiplier >= 25
+          ? [523.25, 659.25, 783.99, 1046.5, 1318.5] // Jackpot fanfare
+          : [440, 554.37, 659.25]; // Standard win chord
+        notes.forEach((freq, i) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, now + i * 0.07);
+          gain.gain.setValueAtTime(0.2, now + i * 0.07);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.07 + 0.35);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now + i * 0.07);
+          osc.stop(now + i * 0.07 + 0.36);
+        });
+      }
+
+      playLossThud() {
+        if (!this.enabled) return;
+        this.init();
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(140, now);
+        osc.frequency.exponentialRampToValueAtTime(55, now + 0.18);
+        gain.gain.setValueAtTime(0.22, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.19);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.2);
+      }
+    }
+
+    const sfx = new SoundEngine();
+
+    /********************************************************************
+     * 2. STATE & PERSISTENT LOCAL STORAGE LEDGER
+     ********************************************************************/
+    const STORAGE_KEY = 'sapo_bet_state_v1';
+
+    const defaultState = {
+      balance: 100.00,
+      riskMode: 'classic', // 'classic' (25x max) or 'high' (50x max)
+      forceNext: 'normal', // 'normal', 'nearmiss', 'jackpot'
+      stats: {
+        totalWagered: 0,
+        totalReturned: 0,
+        nearMissCount: 0
+      },
+      history: [
+        { id: 1, time: 'Demo', bet: 5, hole: 'Blanco Mayor', mult: 2.0, payout: 10.0, nearMiss: false },
+        { id: 2, time: 'Demo', bet: 5, hole: 'Agujero Vacío', mult: 0.0, payout: 0.0, nearMiss: true },
+        { id: 3, time: 'Demo', bet: 5, hole: 'Blanco Menor', mult: 1.2, payout: 6.0, nearMiss: false }
+      ]
+    };
+
+    let state = loadState();
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return structuredClone(defaultState);
+        return { ...structuredClone(defaultState), ...JSON.parse(raw) };
+      } catch (e) {
+        return structuredClone(defaultState);
+      }
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      } catch (e) {
+        console.warn('LocalStorage restricted:', e);
+      }
+    }
+
+    /********************************************************************
+     * 3. EL SAPO BOARD HOLES & SERVER-READY RNG ENGINE (92.5% RTP)
+     ********************************************************************/
+    // Normalized coordinates (0.0 to 1.0) on the wooden Sapo board
+    const BOARD_HOLES = [
+      // Row 1: The Golden Frog Mouth Centerpiece
+      { id: 'sapo', name: 'La Boca del Sapo', x: 0.50, y: 0.20, radius: 0.085, type: 'jackpot', baseMult: 25.0, highMult: 50.0, color: '#FFB642' },
+      // Row 2: Two Golden Side Frogs
+      { id: 'rana_l', name: 'Rana Dorada Izq', x: 0.23, y: 0.27, radius: 0.062, type: 'rana', baseMult: 5.0, highMult: 8.0, color: '#10b981' },
+      { id: 'rana_r', name: 'Rana Dorada Der', x: 0.77, y: 0.27, radius: 0.062, type: 'rana', baseMult: 5.0, highMult: 8.0, color: '#10b981' },
+      // Row 3: Three Blanco Mayor holes
+      { id: 'mayor_1', name: 'Blanco Mayor', x: 0.22, y: 0.45, radius: 0.056, type: 'mayor', baseMult: 2.0, highMult: 3.0, color: '#38bdf8' },
+      { id: 'mayor_2', name: 'Blanco Mayor', x: 0.50, y: 0.45, radius: 0.056, type: 'mayor', baseMult: 2.0, highMult: 3.0, color: '#38bdf8' },
+      { id: 'mayor_3', name: 'Blanco Mayor', x: 0.78, y: 0.45, radius: 0.056, type: 'mayor', baseMult: 2.0, highMult: 3.0, color: '#38bdf8' },
+      // Row 4: Three Blanco Menor holes
+      { id: 'menor_1', name: 'Blanco Menor', x: 0.22, y: 0.63, radius: 0.054, type: 'menor', baseMult: 1.2, highMult: 1.5, color: '#a855f7' },
+      { id: 'menor_2', name: 'Blanco Menor', x: 0.50, y: 0.63, radius: 0.054, type: 'menor', baseMult: 1.2, highMult: 1.5, color: '#a855f7' },
+      { id: 'menor_3', name: 'Blanco Menor', x: 0.78, y: 0.63, radius: 0.054, type: 'menor', baseMult: 1.2, highMult: 1.5, color: '#a855f7' },
+      // Row 5: Bottom / Trap & Partial Loss pockets
+      { id: 'trampa_1', name: 'Agujero Vacío', x: 0.20, y: 0.80, radius: 0.052, type: 'zero', baseMult: 0.0, highMult: 0.0, color: '#64748b' },
+      { id: 'borde_mid', name: 'Borde de Cobre', x: 0.50, y: 0.80, radius: 0.052, type: 'partial', baseMult: 0.5, highMult: 0.2, color: '#94a3b8' },
+      { id: 'trampa_2', name: 'Agujero Vacío', x: 0.80, y: 0.80, radius: 0.052, type: 'zero', baseMult: 0.0, highMult: 0.0, color: '#64748b' }
+    ];
+
+    function getHoleMultiplier(hole) {
+      return state.riskMode === 'high' ? hole.highMult : hole.baseMult;
+    }
+
+    /**
+     * Core RNG & Engagement Engine (Mirrors the Supabase PL/pgSQL function)
+     */
+    function rollSapoOutcome() {
+      // Check if Creator Inspector forced a test outcome
+      if (state.forceNext === 'jackpot') {
+        state.forceNext = 'normal';
+        updateInspectorButtons();
+        const sapoHole = BOARD_HOLES[0];
+        return { hole: sapoHole, mult: getHoleMultiplier(sapoHole), nearMiss: false };
+      }
+
+      if (state.forceNext === 'nearmiss') {
+        state.forceNext = 'normal';
+        updateInspectorButtons();
+        const trapHoles = BOARD_HOLES.filter(h => h.type === 'zero' || h.type === 'partial');
+        const chosenTrap = trapHoles[Math.floor(Math.random() * trapHoles.length)];
+        return { hole: chosenTrap, mult: getHoleMultiplier(chosenTrap), nearMiss: true };
+      }
+
+      // Standard 1-1000 Roll (92.5% RTP in Classic Mode)
+      const roll = Math.floor(Math.random() * 1000) + 1;
+      let chosenType = 'zero';
+      let nearMiss = false;
+
+      if (state.riskMode === 'classic') {
+        if (roll <= 5) chosenType = 'jackpot';          // 0.5% -> 25x (EV 0.125)
+        else if (roll <= 30) chosenType = 'rana';       // 2.5% -> 5x  (EV 0.125)
+        else if (roll <= 130) chosenType = 'mayor';     // 10%  -> 2x  (EV 0.200)
+        else if (roll <= 380) chosenType = 'menor';     // 25%  -> 1.2x(EV 0.300)
+        else if (roll <= 730) chosenType = 'partial';   // 35%  -> 0.5x(EV 0.175)
+        else {
+          chosenType = 'zero';                          // 27%  -> 0.0x
+          if (Math.random() < 0.48) nearMiss = true;    // 48% of zero losses do a thrilling near-miss clink off the Sapo!
+        }
+      } else {
+        // High Risk Mode (More volatile)
+        if (roll <= 3) chosenType = 'jackpot';          // 0.3% -> 50x
+        else if (roll <= 20) chosenType = 'rana';       // 1.7% -> 8x
+        else if (roll <= 95) chosenType = 'mayor';      // 7.5% -> 3x
+        else if (roll <= 265) chosenType = 'menor';     // 17%  -> 1.5x
+        else if (roll <= 550) chosenType = 'partial';   // 28.5%-> 0.2x
+        else {
+          chosenType = 'zero';
+          if (Math.random() < 0.55) nearMiss = true;
+        }
+      }
+
+      const candidates = BOARD_HOLES.filter(h => h.type === chosenType);
+      const hole = candidates[Math.floor(Math.random() * candidates.length)];
+      return {
+        hole,
+        mult: getHoleMultiplier(hole),
+        nearMiss
+      };
+    }
+
+    /********************************************************************
+     * 4. INTERACTIVE HTML5 CANVAS BOARD & PARABOLIC COIN ANIMATION
+     ********************************************************************/
+    const canvas = document.getElementById('sapoCanvas');
+    const ctx = canvas.getContext('2d');
+
+    let activeCoin = null; // Holds current tossed coin animation state
+    let particles = [];    // Metallic sparks & celebration particles
+    let sapoJawFlash = 0;  // Glow intensity when coin hits or enters Sapo
+    let autoTossActive = false;
+    let autoTossTimer = null;
+
+    function resizeCanvas() {
+      const rect = canvas.parentElement.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+
+    function spawnSparks(x, y, color, count = 18) {
+      for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 1.5 + Math.random() * 4.5;
+        particles.push({
+          x,
+          y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed - 1.2,
+          life: 1.0,
+          decay: 0.025 + Math.random() * 0.03,
+          color,
+          size: 2 + Math.random() * 3
+        });
+      }
+    }
+
+    function drawBoard(w, h) {
+      ctx.clearRect(0, 0, w, h);
+
+      // Subtle brass inlaid divider lines on the wood table
+      ctx.strokeStyle = 'rgba(255, 182, 66, 0.14)';
+      ctx.lineWidth = 1.5;
+      [0.36, 0.54, 0.72].forEach(rowY => {
+        ctx.beginPath();
+        ctx.moveTo(w * 0.08, h * rowY);
+        ctx.lineTo(w * 0.92, h * rowY);
+        ctx.stroke();
+      });
+
+      // Draw each of the 12 holes
+      BOARD_HOLES.forEach(hole => {
+        const cx = hole.x * w;
+        const cy = hole.y * h;
+        const r = hole.radius * Math.min(w, h);
+        const mult = getHoleMultiplier(hole);
+
+        // Outer shadow glow for special holes
+        if (hole.id === 'sapo') {
+          ctx.save();
+          // Sculpted Golden Frog Head Halo
+          const grad = ctx.createRadialGradient(cx, cy, r * 0.3, cx, cy, r * 1.65);
+          grad.addColorStop(0, 'rgba(255, 182, 66, 0.45)');
+          grad.addColorStop(1, 'rgba(255, 182, 66, 0)');
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(cx, cy, r * 1.65, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Golden Frog Eyes above the mouth
+          [-0.65, 0.65].forEach(offsetX => {
+            const eyeX = cx + offsetX * r;
+            const eyeY = cy - r * 0.85;
+            ctx.fillStyle = '#d97706';
+            ctx.beginPath();
+            ctx.arc(eyeX, eyeY, r * 0.32, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#00E701';
+            ctx.beginPath();
+            ctx.arc(eyeX, eyeY, r * 0.16, 0, Math.PI * 2);
+            ctx.fill();
+          });
+          ctx.restore();
+        }
+
+        // Brass Metallic Rim
+        const rimGrad = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
+        if (hole.id === 'sapo') {
+          rimGrad.addColorStop(0, '#fde68a');
+          rimGrad.addColorStop(0.5, '#f59e0b');
+          rimGrad.addColorStop(1, '#78350f');
+        } else if (hole.type === 'rana') {
+          rimGrad.addColorStop(0, '#6ee7b7');
+          rimGrad.addColorStop(0.5, '#10b981');
+          rimGrad.addColorStop(1, '#064e3b');
+        } else {
+          rimGrad.addColorStop(0, '#94a3b8');
+          rimGrad.addColorStop(0.5, '#475569');
+          rimGrad.addColorStop(1, '#1e293b');
+        }
+
+        ctx.fillStyle = rimGrad;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 1.15, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Deep Dark Interior Hole Pocket
+        ctx.fillStyle = '#07090d';
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 0.9, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Inner Shadow Arc
+        ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 0.84, Math.PI * 0.9, Math.PI * 2.1);
+        ctx.stroke();
+
+        // Multiplier Badge Label below/inside hole
+        ctx.font = `800 ${hole.id === 'sapo' ? 12 : 10}px "JetBrains Mono", monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = hole.color;
+        ctx.fillText(`${mult}x`, cx, cy);
+
+        // Label caption under the top Sapo
+        if (hole.id === 'sapo') {
+          ctx.font = '800 9px "Outfit", sans-serif';
+          ctx.fillStyle = '#fde68a';
+          ctx.fillText('LA BOCA DEL SAPO', cx, cy + r * 1.42);
+        }
+      });
+
+      // Draw resting coin at launchpad if not currently mid-flight
+      if (!activeCoin) {
+        const startX = w * 0.5;
+        const startY = h * 0.93;
+        drawGoldenCoin(startX, startY, 15, 0);
+      } else {
+        // Update & render flying coin
+        updateAndDrawFlyingCoin(w, h);
+      }
+
+      // Render Metallic Sparks
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.14; // gravity
+        p.life -= p.decay;
+        if (p.life <= 0) {
+          particles.splice(i, 1);
+          continue;
+        }
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, p.life);
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      requestAnimationFrame(() => drawBoard(canvas.clientWidth, canvas.clientHeight));
+    }
+
+    function drawGoldenCoin(x, y, radius, spinAngle) {
+      ctx.save();
+      ctx.translate(x, y);
+      // Simulate 3D coin flip by scaling Y axis with cosine of spinAngle
+      const scaleY = Math.max(0.28, Math.abs(Math.cos(spinAngle)));
+      ctx.scale(1, scaleY);
+
+      // Drop shadow
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.65)';
+      ctx.shadowBlur = 10;
+      ctx.shadowOffsetY = 6;
+
+      const grad = ctx.createRadialGradient(-radius * 0.3, -radius * 0.3, 2, 0, 0, radius);
+      grad.addColorStop(0, '#fef08a');
+      grad.addColorStop(0.55, '#FFB642');
+      grad.addColorStop(1, '#b45309');
+
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = '#fef9c3';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius * 0.75, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.font = `900 ${Math.round(radius * 0.85)}px "JetBrains Mono", monospace`;
+      ctx.fillStyle = '#451a03';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('L', 0, 1);
+
+      ctx.restore();
+    }
+
+    function updateAndDrawFlyingCoin(w, h) {
+      const c = activeCoin;
+      const now = performance.now();
+      const elapsed = now - c.startTime;
+
+      if (!c.nearMiss) {
+        // Direct parabolic arc to target hole
+        const t = Math.min(1, elapsed / c.duration);
+        const ease = 1 - Math.pow(1 - t, 2.2);
+
+        const curX = c.startX + (c.targetX - c.startX) * ease;
+        // Parabolic height arc
+        const arcLift = Math.sin(t * Math.PI) * (h * 0.16);
+        const curY = c.startY + (c.targetY - c.startY) * ease - arcLift;
+        const radius = 15 * (1 + Math.sin(t * Math.PI) * 0.45 - t * 0.25);
+
+        drawGoldenCoin(curX, curY, radius, t * 14);
+
+        if (t >= 1) {
+          finishToss(c);
+        }
+      } else {
+        // SCRIPTED NEAR-MISS TWO-STAGE ANIMATION:
+        // Stage 1 (0 to 0.58): Flies straight to the 25x Golden Sapo Mouth!
+        // Stage 2 (0.58 to 1.0): Clinks violently off the brass jaw with sparks & screen shake, ricocheting into the trap hole!
+        const totalT = Math.min(1, elapsed / c.duration);
+
+        if (totalT < 0.58) {
+          const t1 = totalT / 0.58;
+          const curX = c.startX + (c.sapoRimX - c.startX) * t1;
+          const arcLift = Math.sin(t1 * Math.PI) * (h * 0.18);
+          const curY = c.startY + (c.sapoRimY - c.startY) * t1 - arcLift;
+          const radius = 15 * (1 + Math.sin(t1 * Math.PI) * 0.45);
+          drawGoldenCoin(curX, curY, radius, t1 * 12);
+        } else {
+          // Trigger metallic brass clink and sparks once at the exact impact moment
+          if (!c.clinkTriggered) {
+            c.clinkTriggered = true;
+            sfx.playBrassClink();
+            spawnSparks(c.sapoRimX, c.sapoRimY, '#FFB642', 26);
+            triggerBoardShake();
+            showFloatingOutcome('¡CASI EN LA BOCA DEL SAPO!', 'nearmiss');
+          }
+          const t2 = (totalT - 0.58) / 0.42;
+          const curX = c.sapoRimX + (c.targetX - c.sapoRimX) * t2;
+          const bounceArc = Math.sin(t2 * Math.PI) * (h * 0.08);
+          const curY = c.sapoRimY + (c.targetY - c.sapoRimY) * t2 - bounceArc;
+          const radius = 14 * (1 - t2 * 0.25);
+          drawGoldenCoin(curX, curY, radius, t2 * 10);
+        }
+
+        if (totalT >= 1) {
+          finishToss(c);
+        }
+      }
+    }
+
+    function triggerBoardShake() {
+      const container = document.getElementById('boardContainer');
+      container.classList.remove('shake-screen');
+      void container.offsetWidth;
+      container.classList.add('shake-screen');
+    }
+
+    /********************************************************************
+     * 5. GAMEPLAY EXECUTION & UI SYNCHRONIZATION
+     ********************************************************************/
+    function launchCoinToss() {
+      if (activeCoin) return; // Coin already in air
+
+      const betInput = document.getElementById('betInput');
+      let bet = parseFloat(betInput.value);
+      if (isNaN(bet) || bet <= 0) bet = 1;
+
+      if (bet > state.balance) {
+        stopAutoToss();
+        openWalletModal();
+        showWalletToast('Saldo insuficiente. Recarga Lucas vía QR Simple.');
+        return;
+      }
+
+      // Deduct bet immediately
+      state.balance = Math.max(0, +(state.balance - bet).toFixed(2));
+      state.stats.totalWagered = +(state.stats.totalWagered + bet).toFixed(2);
+      updateHUD();
+
+      sfx.playCoinLaunch();
+      document.getElementById('btnToss').disabled = true;
+      document.getElementById('btnToss').classList.add('opacity-70');
+
+      const outcome = rollSapoOutcome();
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+
+      const sapoHole = BOARD_HOLES[0];
+      const sapoRimOffset = (Math.random() < 0.5 ? -1 : 1) * (w * 0.045);
+
+      activeCoin = {
+        bet,
+        hole: outcome.hole,
+        mult: outcome.mult,
+        nearMiss: outcome.nearMiss,
+        startTime: performance.now(),
+        duration: outcome.nearMiss ? 920 : 620,
+        startX: w * 0.5,
+        startY: h * 0.92,
+        sapoRimX: sapoHole.x * w + sapoRimOffset,
+        sapoRimY: sapoHole.y * h + (h * 0.03),
+        targetX: outcome.hole.x * w,
+        targetY: outcome.hole.y * h,
+        clinkTriggered: false
+      };
+    }
+
+    function finishToss(c) {
+      const payout = +(c.bet * c.mult).toFixed(2);
+      state.balance = +(state.balance + payout).toFixed(2);
+      state.stats.totalReturned = +(state.stats.totalReturned + payout).toFixed(2);
+      if (c.nearMiss) state.stats.nearMissCount += 1;
+
+      // Spawn celebration or thud particles
+      if (c.mult >= 2.0) {
+        sfx.playWin(c.mult);
+        spawnSparks(c.targetX, c.targetY, c.mult >= 25 ? '#FFB642' : '#00E701', c.mult >= 25 ? 40 : 22);
+        if (c.mult >= 25) triggerBoardShake();
+        showFloatingOutcome(`¡${c.hole.name.toUpperCase()}! +${payout.toFixed(2)} L (${c.mult}x)`, 'win');
+      } else if (c.mult > 0) {
+        sfx.playWin(c.mult);
+        spawnSparks(c.targetX, c.targetY, '#38bdf8', 12);
+        showFloatingOutcome(`${c.hole.name} • +${payout.toFixed(2)} L (${c.mult}x)`, 'neutral');
+      } else {
+        sfx.playLossThud();
+        if (!c.nearMiss) {
+          showFloatingOutcome(`${c.hole.name} (0.0x)`, 'loss');
+        }
+      }
+
+      // Log into History
+      const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      state.history.unshift({
+        id: Date.now(),
+        time: nowStr,
+        bet: c.bet,
+        hole: c.hole.name,
+        mult: c.mult,
+        payout,
+        nearMiss: c.nearMiss
+      });
+      if (state.history.length > 40) state.history.pop();
+
+      saveState();
+      updateHUD();
+      renderTickerAndHistory();
+
+      activeCoin = null;
+      const btnToss = document.getElementById('btnToss');
+      btnToss.disabled = false;
+      btnToss.classList.remove('opacity-70');
+
+      // Continue Auto-Toss if active
+      if (autoTossActive) {
+        autoTossTimer = setTimeout(() => {
+          if (autoTossActive) launchCoinToss();
+        }, 450);
+      }
+    }
+
+    let overlayTimeout = null;
+    function showFloatingOutcome(text, styleType) {
+      const overlay = document.getElementById('outcomeOverlay');
+      const box = document.getElementById('outcomeBox');
+      box.textContent = text;
+
+      box.className = 'px-3.5 py-1.5 rounded-xl font-extrabold text-xs tracking-wide shadow-2xl border backdrop-blur-md ';
+      if (styleType === 'win') {
+        box.className += 'bg-neonEmerald/95 text-obsidian border-white';
+      } else if (styleType === 'nearmiss') {
+        box.className += 'bg-amberGold/95 text-obsidian border-yellow-200';
+      } else if (styleType === 'neutral') {
+        box.className += 'bg-cardLight/95 text-white border-slate-600';
+      } else {
+        box.className += 'bg-obsidian/90 text-slate-400 border-slate-700';
+      }
+
+      overlay.classList.remove('opacity-0', 'scale-90');
+      overlay.classList.add('opacity-100', 'scale-100');
+
+      clearTimeout(overlayTimeout);
+      overlayTimeout = setTimeout(() => {
+        overlay.classList.remove('opacity-100', 'scale-100');
+        overlay.classList.add('opacity-0', 'scale-90');
+      }, 1700);
+    }
+
+    function updateHUD() {
+      document.getElementById('hudBalance').textContent = state.balance.toFixed(2);
+      document.getElementById('withdrawAvailBalance').textContent = `${state.balance.toFixed(2)} LUCAS`;
+
+      const betVal = parseFloat(document.getElementById('betInput').value) || 0;
+      const topMult = state.riskMode === 'high' ? 50 : 25;
+      document.getElementById('potentialWinText').textContent = `Premio Sapo (${topMult}x): ${(betVal * topMult).toFixed(2)} L`;
+
+      // Update House Telemetry
+      const houseProfit = state.stats.totalWagered - state.stats.totalReturned;
+      const profitEl = document.getElementById('statHouseProfit');
+      profitEl.textContent = `${houseProfit >= 0 ? '+' : ''}${houseProfit.toFixed(2)} L`;
+      profitEl.className = `font-mono font-bold text-sm ${houseProfit >= 0 ? 'text-neonEmerald' : 'text-crimson'}`;
+
+      const actualRTP = state.stats.totalWagered > 0
+        ? ((state.stats.totalReturned / state.stats.totalWagered) * 100).toFixed(1)
+        : '0.0';
+      document.getElementById('statActualRTP').textContent = `${actualRTP}%`;
+      document.getElementById('statNearMisses').textContent = state.stats.nearMissCount;
+    }
+
+    function renderTickerAndHistory() {
+      const ticker = document.getElementById('recentTicker');
+      ticker.innerHTML = '';
+
+      state.history.slice(0, 12).forEach(item => {
+        const pill = document.createElement('span');
+        let colorClass = 'bg-slate-800 text-slate-400 border-slate-700';
+        if (item.mult >= 25) colorClass = 'bg-amberGold text-obsidian border-yellow-200 font-black';
+        else if (item.mult >= 2) colorClass = 'bg-neonEmerald/20 text-neonEmerald border-neonEmerald/40 font-bold';
+        else if (item.mult >= 1) colorClass = 'bg-sky-500/20 text-sky-300 border-sky-500/30 font-bold';
+
+        pill.className = `text-[10px] font-mono px-2 py-0.5 rounded-md border shrink-0 ${colorClass}`;
+        pill.textContent = `${item.mult.toFixed(1)}x`;
+        ticker.appendChild(pill);
+      });
+
+      const list = document.getElementById('historyList');
+      list.innerHTML = '';
+      if (state.history.length === 0) {
+        list.innerHTML = `<div class="text-center text-xs text-slate-500 py-8">Aún no hay lanzamientos registrados.</div>`;
+        return;
+      }
+
+      state.history.forEach(item => {
+        const net = +(item.payout - item.bet).toFixed(2);
+        const row = document.createElement('div');
+        row.className = 'bg-obsidian border border-slate-800/90 rounded-xl p-2.5 flex items-center justify-between text-xs';
+        row.innerHTML = `
+          <div>
+            <div class="font-bold text-white flex items-center gap-1.5">
+              <span>${item.hole}</span>
+              <span class="font-mono text-[10px] px-1.5 py-0.5 rounded bg-cardLight text-amberGold">${item.mult}x</span>
+              ${item.nearMiss ? '<span class="text-[9px] bg-amberGold/20 text-amberGold px-1.5 py-0.5 rounded font-mono">CASI-SAPO</span>' : ''}
+            </div>
+            <div class="text-[10px] text-slate-400 font-mono mt-0.5">${item.time} &bull; Apuesta: ${item.bet.toFixed(2)} L</div>
+          </div>
+          <div class="text-right font-mono font-bold ${net >= 0 ? 'text-neonEmerald' : 'text-slate-400'}">
+            ${net >= 0 ? '+' : ''}${net.toFixed(2)} L
+          </div>
+        `;
+        list.appendChild(row);
+      });
+    }
+
+    /********************************************************************
+     * 6. UI EVENT LISTENERS & WALLET QR FLOW
+     ********************************************************************/
+    document.getElementById('btnToss').addEventListener('click', () => {
+      launchCoinToss();
+    });
+
+    function stopAutoToss() {
+      autoTossActive = false;
+      clearTimeout(autoTossTimer);
+      const btn = document.getElementById('btnAutoToss');
+      btn.classList.remove('border-neonEmerald', 'text-neonEmerald', 'bg-neonEmerald/10');
+      btn.classList.add('text-slate-300');
+    }
+
+    document.getElementById('btnAutoToss').addEventListener('click', () => {
+      autoTossActive = !autoTossActive;
+      const btn = document.getElementById('btnAutoToss');
+      if (autoTossActive) {
+        btn.classList.add('border-neonEmerald', 'text-neonEmerald', 'bg-neonEmerald/10');
+        btn.classList.remove('text-slate-300');
+        if (!activeCoin) launchCoinToss();
+      } else {
+        stopAutoToss();
+      }
+    });
+
+    // Bet Modifiers & Quick Chips
+    document.getElementById('betInput').addEventListener('input', updateHUD);
+
+    document.querySelectorAll('.chip-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.getElementById('betInput').value = btn.dataset.chip;
+        document.querySelectorAll('.chip-btn').forEach(b => b.classList.remove('border-amberGold/50', 'text-amberGold'));
+        btn.classList.add('border-amberGold/50', 'text-amberGold');
+        updateHUD();
+      });
+    });
+
+    document.querySelectorAll('.bet-mod-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const input = document.getElementById('betInput');
+        let val = parseFloat(input.value) || 1;
+        const mod = btn.dataset.betmod;
+        if (mod === 'half') val = Math.max(1, Math.floor(val / 2));
+        if (mod === 'double') val = Math.min(Math.max(1, Math.floor(state.balance)), val * 2);
+        if (mod === 'max') val = Math.max(1, Math.floor(state.balance));
+        input.value = val;
+        updateHUD();
+      });
+    });
+
+    // Risk Mode Selector
+    document.querySelectorAll('.risk-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.riskMode = btn.dataset.risk;
+        document.querySelectorAll('.risk-btn').forEach(b => {
+          b.classList.remove('bg-cardLight', 'text-amberGold', 'font-bold');
+          b.classList.add('text-slate-400');
+        });
+        btn.classList.add('bg-cardLight', 'text-amberGold', 'font-bold');
+        btn.classList.remove('text-slate-400');
+        saveState();
+        updateHUD();
+      });
+    });
+
+    // Creator Inspector Drawer
+    document.getElementById('btnToggleInspector').addEventListener('click', () => {
+      const drawer = document.getElementById('inspectorDrawer');
+      const isHidden = drawer.classList.contains('hidden');
+      drawer.classList.toggle('hidden');
+      document.getElementById('btnToggleInspector').textContent = isHidden ? 'Ocultar' : 'Abrir Panel';
+    });
+
+    function updateInspectorButtons() {
+      document.querySelectorAll('.force-btn').forEach(btn => {
+        if (btn.dataset.force === state.forceNext) {
+          btn.className = 'force-btn bg-amberGold text-obsidian font-bold py-1.5 rounded-lg text-[11px] transition';
+        } else {
+          btn.className = 'force-btn bg-obsidian border border-slate-700 text-slate-200 font-semibold py-1.5 rounded-lg text-[11px] transition';
+        }
+      });
+    }
+
+    document.querySelectorAll('.force-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.forceNext = btn.dataset.force;
+        updateInspectorButtons();
+      });
+    });
+
+    document.getElementById('btnResetStats').addEventListener('click', () => {
+      state.stats = { totalWagered: 0, totalReturned: 0, nearMissCount: 0 };
+      saveState();
+      updateHUD();
+    });
+
+    // Sound Toggle
+    document.getElementById('btnSoundToggle').addEventListener('click', () => {
+      sfx.enabled = !sfx.enabled;
+      const icon = document.getElementById('soundIcon');
+      icon.className = sfx.enabled ? 'fa-solid fa-volume-high text-sm' : 'fa-solid fa-volume-xmark text-sm text-slate-500';
+    });
+
+    // Bottom Navigation Switching
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const target = btn.dataset.nav;
+        document.getElementById('viewGame').classList.toggle('hidden', target !== 'game');
+        document.getElementById('viewHistory').classList.toggle('hidden', target !== 'history');
+        document.getElementById('viewRules').classList.toggle('hidden', target !== 'rules');
+
+        document.querySelectorAll('.nav-btn').forEach(b => {
+          b.classList.remove('text-amberGold');
+          b.classList.add('text-slate-400');
+        });
+        btn.classList.add('text-amberGold');
+        btn.classList.remove('text-slate-400');
+      });
+    });
+
+    document.getElementById('btnClearHistory').addEventListener('click', () => {
+      state.history = [];
+      saveState();
+      renderTickerAndHistory();
+    });
+
+    // Wallet QR Modal Controls
+    let selectedDepositPkg = 50;
+    const walletModal = document.getElementById('walletModal');
+
+    function openWalletModal() {
+      walletModal.classList.remove('hidden');
+      updateHUD();
+    }
+
+    document.getElementById('btnOpenWallet').addEventListener('click', openWalletModal);
+    document.getElementById('btnNavWallet').addEventListener('click', openWalletModal);
+    document.getElementById('btnCloseWallet').addEventListener('click', () => {
+      walletModal.classList.add('hidden');
+    });
+
+    document.getElementById('tabDeposit').addEventListener('click', () => {
+      document.getElementById('depositSection').classList.remove('hidden');
+      document.getElementById('withdrawSection').classList.add('hidden');
+      document.getElementById('tabDeposit').className = 'py-2 rounded-lg font-bold text-xs bg-cardLight text-neonEmerald';
+      document.getElementById('tabWithdraw').className = 'py-2 rounded-lg font-bold text-xs text-slate-400';
+    });
+
+    document.getElementById('tabWithdraw').addEventListener('click', () => {
+      document.getElementById('withdrawSection').classList.remove('hidden');
+      document.getElementById('depositSection').classList.add('hidden');
+      document.getElementById('tabWithdraw').className = 'py-2 rounded-lg font-bold text-xs bg-cardLight text-amberGold';
+      document.getElementById('tabDeposit').className = 'py-2 rounded-lg font-bold text-xs text-slate-400';
+    });
+
+    document.querySelectorAll('.pkg-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectedDepositPkg = parseInt(btn.dataset.pkg, 10);
+        document.querySelectorAll('.pkg-btn').forEach(b => {
+          b.className = 'pkg-btn bg-obsidian border border-slate-700 rounded-xl py-2 font-mono font-bold text-xs text-white';
+        });
+        btn.className = 'pkg-btn bg-obsidian border border-neonEmerald rounded-xl py-2 font-mono font-bold text-xs text-neonEmerald';
+        document.getElementById('qrAmountLabel').textContent = `${selectedDepositPkg}.00 BOB`;
+        document.getElementById('btnApproveAmt').textContent = selectedDepositPkg;
+      });
+    });
+
+    function showWalletToast(msg) {
+      const toast = document.getElementById('walletToast');
+      toast.textContent = msg;
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 2800);
+    }
+
+    document.getElementById('btnInstantApproveDeposit').addEventListener('click', () => {
+      state.balance = +(state.balance + selectedDepositPkg).toFixed(2);
+      saveState();
+      updateHUD();
+      sfx.playWin(5);
+      showWalletToast(`¡Recarga QR verificada! +${selectedDepositPkg}.00 LUCAS acreditados.`);
+      document.getElementById('qrRefInput').value = '';
+    });
+
+    document.getElementById('btnProcessWithdraw').addEventListener('click', () => {
+      const amt = parseFloat(document.getElementById('withdrawAmountInput').value);
+      const bank = document.getElementById('withdrawBankInput').value.trim();
+      if (isNaN(amt) || amt <= 0 || amt > state.balance) {
+        showWalletToast('Monto inválido o superior a tu saldo de Lucas.');
+        return;
+      }
+      if (!bank) {
+        showWalletToast('Ingresa tu cuenta bancaria o número Tigo Money.');
+        return;
+      }
+      state.balance = +(state.balance - amt).toFixed(2);
+      saveState();
+      updateHUD();
+      showWalletToast(`Retiro de ${amt.toFixed(2)} BOB enviado a ${bank}.`);
+    });
+
+    // Initialize App on Window Load
+    window.onload = function () {
+      resizeCanvas();
+      updateHUD();
+      renderTickerAndHistory();
+      drawBoard(canvas.clientWidth, canvas.clientHeight);
+    };
+  </script>
+</body>
+</html>
